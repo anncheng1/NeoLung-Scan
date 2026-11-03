@@ -1,0 +1,18 @@
+{
+  "name": "NeoLung Scan",
+  "short_name": "NeoLung",
+  "description": "Step-by-step Pleura-ABCDE neonatal lung ultrasound acquisition, scoring and export for AI image review.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef2f4",
+  "theme_color": "#1c5d78",
+  "categories": ["medical", "health"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

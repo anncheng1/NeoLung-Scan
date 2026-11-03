@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NeoLung Scan</title>
+<meta name="description" content="Step-by-step Pleura-ABCDE neonatal lung ultrasound acquisition, scoring and export for AI image review.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141f25" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="NeoLung">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: phone-first single column (max 720px). Sticky top bar + horizontal zone rail; each zone is four numbered acquisition cards. Image wells stay sonogram-black in both themes. */
+:root{
+  --bg:#eef2f4; --surface:#ffffff; --ink:#12202a; --muted:#56666f; --line:#d3dbe0; --line-2:#e5ebee;
+  --accent:#1c5d78; --accent-ink:#ffffff; --accent-weak:#e0edf3;
+  --good:#2b8754; --warn:#b37709; --crit:#b3261e; --idle:#97a3ab;
+  --well:#06090b; --well-ink:#c7d4da;
+  --f-ui:"Instrument Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1317; --surface:#141f25; --ink:#e2e9ed; --muted:#93a3ac; --line:#283841; --line-2:#1d2b32;
+  --accent:#6db2cf; --accent-ink:#0b1a21; --accent-weak:#17313c;
+  --good:#5ac088; --warn:#e1a93c; --crit:#ef7b72; --idle:#66747c;
+  --well:#030506; --well-ink:#c7d4da; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1317; --surface:#141f25; --ink:#e2e9ed; --muted:#93a3ac; --line:#283841; --line-2:#1d2b32;
+  --accent:#6db2cf; --accent-ink:#0b1a21; --accent-weak:#17313c;
+  --good:#5ac088; --warn:#e1a93c; --crit:#ef7b72; --idle:#66747c;
+  --well:#030506; --well-ink:#c7d4da; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;gap:12px;padding-block:10px;min-height:56px}
+.brand{font-weight:700;font-size:17px;letter-spacing:-.01em;display:flex;gap:8px;align-items:baseline;background:none;border:0;color:var(--ink);cursor:pointer;padding:0;font-family:var(--f-ui)}
+.brand{white-space:nowrap}
+@media (max-width:420px){.brand small{display:none}}
+.brand small{font:500 10.5px var(--f-data);color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.bar .sp{flex:1}
+main{padding-block:18px 96px}
+h1{font-size:23px;letter-spacing:-.015em;margin:0;text-wrap:balance;line-height:1.2}
+h2{font-size:16px;margin:0;text-wrap:balance}
+h3{font-size:12px;margin:0;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+p{margin:0}
+.muted{color:var(--muted)} .small{font-size:13px} .mono{font-family:var(--f-data)} .num{font-variant-numeric:tabular-nums}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.step{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:600 13px var(--f-data);background:var(--accent);color:var(--accent-ink);flex:none}
+.step.done{background:var(--good)}
+.btn{font:600 15px var(--f-ui);border-radius:10px;padding:11px 16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--crit)}
+.btn.ghost{background:none;border-color:transparent;color:var(--accent);padding-inline:8px}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:13px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
+input,select,textarea{font:400 16px var(--f-ui);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;min-height:46px;width:100%}
+textarea{min-height:84px;resize:vertical}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px}
+.fields .span{grid-column:1/-1}
+.unit{display:flex;align-items:center;gap:8px}.unit span{font:500 12px var(--f-data);color:var(--muted);white-space:nowrap}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;padding:6px 0}
+.check input{width:22px;height:22px;min-height:0;flex:none;margin:1px 0 0;accent-color:var(--accent)}
+.note{font-size:13px;padding:10px 12px;border-radius:9px;background:var(--accent-weak)}
+.note.warn{background:color-mix(in srgb,var(--warn) 15%,transparent)}
+.note.crit{background:color-mix(in srgb,var(--crit) 12%,transparent)}
+.note.good{background:color-mix(in srgb,var(--good) 14%,transparent)}
+.pill{display:inline-flex;align-items:center;gap:6px;font:600 11.5px var(--f-ui);padding:2px 9px;border-radius:99px;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.p-good{color:var(--good);background:color-mix(in srgb,var(--good) 13%,transparent)}
+.p-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
+.p-idle{color:var(--muted);background:var(--line-2)}
+.p-acc{color:var(--accent);background:var(--accent-weak)}
+/* home list */
+.exam{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);cursor:pointer;text-align:left;color:var(--ink);font:inherit;width:100%}
+.exam:hover{border-color:var(--accent)}
+.exam b{font:600 15px var(--f-data)}
+.exam .sc{grid-row:1/3;grid-column:2;text-align:right;font:600 22px var(--f-data);align-self:center}
+.exam .sc small{display:block;font:500 11px var(--f-ui);color:var(--muted)}
+/* zone rail */
+.rail{display:flex;gap:6px;overflow-x:auto;padding:8px 0 10px;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.zc{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);padding:5px 9px;min-width:52px;cursor:pointer;font:600 13px var(--f-data)}
+.zc i{width:8px;height:8px;border-radius:50%}
+.zc[aria-current="step"]{border-color:var(--accent);background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent)}
+.zc small{font:500 10px var(--f-data);color:var(--muted)}
+/* placement */
+.place{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:440px){.place{grid-template-columns:minmax(0,1fr)}.place svg{max-width:220px}}
+.place svg{width:100%;height:auto;display:block}
+details{border-top:1px solid var(--line-2);padding-top:10px;margin-top:12px}
+summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--accent)}
+details ul{margin:8px 0 0;padding-left:18px;font-size:14px}
+details li{margin-bottom:4px}
+/* media */
+.shots{display:flex;flex-direction:column;gap:12px}
+.shot{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.shot .vis{background:var(--well);display:grid;place-items:center;max-height:340px;overflow:hidden}
+.shot img,.shot video{max-width:100%;max-height:340px;display:block}
+.shot .body{padding:10px 12px}
+.qc{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media (max-width:460px){.qc{grid-template-columns:1fr}}
+.qc .check{font-size:13px}
+/* findings */
+.grp{display:flex;align-items:center;gap:8px;margin:14px 0 4px}
+.grp:first-child{margin-top:0}
+.grp b{font:700 13px var(--f-data);width:26px;height:26px;border-radius:7px;display:grid;place-items:center;background:var(--ink);color:var(--surface)}
+.frow{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:9px 0;border-bottom:1px solid var(--line-2)}
+.frow .lab{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.ex{font:600 12px var(--f-ui);color:var(--accent);background:none;border:0;cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:2px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:500 14px var(--f-ui);border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:9px;padding:8px 14px;min-height:42px;cursor:pointer;flex:1 1 auto}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.scores{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media (min-width:560px){.scores{grid-template-columns:repeat(4,1fr)}}
+.scores button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px;min-height:84px;position:relative;font-family:var(--f-ui)}
+.scores b{font:600 24px var(--f-data)}
+.scores small{font-size:11.5px;color:var(--muted);line-height:1.3}
+.scores button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent)}
+.scores .sug{position:absolute;top:8px;right:8px;font:600 9.5px var(--f-data);color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+/* bottom nav */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.dock .wrap{display:flex;gap:10px;padding-block:10px}
+.dock .btn{flex:1}
+/* crop */
+.cropbox{background:var(--well);border-radius:10px;overflow:hidden;touch-action:none;position:relative}
+.cropbox canvas{width:100%;height:auto;display:block;touch-action:none;cursor:crosshair}
+/* summary table */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:6px 7px;border-bottom:1px solid var(--line-2);text-align:center;white-space:nowrap}
+th{font:600 11px var(--f-data);color:var(--muted);background:var(--bg)}
+td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1}
+th:first-child{background:var(--bg)}
+td.off{color:var(--idle)}
+tr.grp-r td{background:var(--bg);font:700 11px var(--f-data);color:var(--ink);text-align:left}
+.sumg{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.sumg figure{margin:0;background:var(--well);border-radius:8px;overflow:hidden;position:relative;aspect-ratio:4/3}
+.sumg img,.sumg video{width:100%;height:100%;object-fit:cover;display:block}
+.sumg figcaption{position:absolute;left:4px;top:4px;font:600 11px var(--f-data);background:rgba(0,0,0,.65);color:#fff;border-radius:4px;padding:1px 5px}
+.big{font:600 34px var(--f-data);font-variant-numeric:tabular-nums;line-height:1}
+.big small{font-size:15px;color:var(--muted)}
+/* refs */
+.refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.ref{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.ref img{width:100%;display:block;background:#000}
+.ref figcaption{padding:10px 12px;font-size:13px}
+.ref figcaption b{display:block;font-size:14px}
+.attr{font-size:12px;color:var(--muted)}
+.modal{position:fixed;inset:0;z-index:30;background:rgba(5,10,13,.82);display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.modal .in{background:var(--surface);border-radius:var(--r);max-width:760px;width:100%;max-height:100%;overflow:auto}
+.modal img{width:100%;display:block;background:#000}
+.modal .cap{padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:9px;font-weight:600;font-size:14px;z-index:40;max-width:calc(100% - 32px);text-align:center}
+.busy{position:fixed;inset:0;z-index:35;background:color-mix(in srgb,var(--bg) 70%,transparent);display:grid;place-items:center;font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="bar"><div class="wrap">
+  <button class="brand" data-act="home" aria-label="NeoLung Scan home">NeoLung Scan <small>Pleura-ABCDE</small></button>
+  <span class="sp"></span>
+  <button class="btn ghost sm" data-act="refs">References</button>
+</div></header>
+<main class="wrap" id="app"><p class="muted">Loading…</p></main>
+<div id="dock"></div>
+<div id="modal"></div>
+<div class="toast" id="toast" hidden></div>
+<div class="busy" id="busy" hidden>Preparing export…</div>
+
+<script src="refs.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script>
+"use strict";
+const APP_VERSION="1.0.0";
+/* ================= protocol definition ================= */
+const ZONES={
+ R1:{code:"RUA",name:"Right upper anterior",view:"front",core:true,where:"Right front of chest, between the parasternal line and the anterior axillary line, above the nipple line.",pos:"Supine, head midline, arms relaxed."},
+ R2:{code:"RLA",name:"Right lower anterior",view:"front",core:true,where:"Right front of chest, between the parasternal line and the anterior axillary line, below the nipple line down to the diaphragm.",pos:"Supine."},
+ R3:{code:"RL",name:"Right lateral",view:"front",core:true,where:"Right side, between the anterior and posterior axillary lines, from the axilla to the costal margin.",pos:"Supine. Slide the probe round to the side; tilt the baby slightly to the left if needed."},
+ R4:{code:"RUP",name:"Right upper posterior",view:"back",core:false,where:"Right back, between the paravertebral line and the posterior axillary line, upper half.",pos:"Turn the baby onto the left side or prone with a second person. Skip if the baby is unstable."},
+ R5:{code:"RLP",name:"Right lower posterior",view:"back",core:false,where:"Right back, between the paravertebral line and the posterior axillary line, lower half to the diaphragm.",pos:"Same position as R4. In a supine baby, effusion collects at the costodiaphragmatic recess near the posterior axillary line."},
+ L1:{code:"LUA",name:"Left upper anterior",view:"front",core:true,where:"Left front of chest, between the parasternal line and the anterior axillary line, above the nipple line.",pos:"Supine. The heart may limit the window medially; move slightly lateral."},
+ L2:{code:"LLA",name:"Left lower anterior",view:"front",core:true,where:"Left front of chest, between the parasternal line and the anterior axillary line, below the nipple line down to the diaphragm.",pos:"Supine."},
+ L3:{code:"LL",name:"Left lateral",view:"front",core:true,where:"Left side, between the anterior and posterior axillary lines, from the axilla to the costal margin.",pos:"Supine. Slide the probe round to the side; tilt the baby slightly to the right if needed."},
+ L4:{code:"LUP",name:"Left upper posterior",view:"back",core:false,where:"Left back, between the paravertebral line and the posterior axillary line, upper half.",pos:"Turn the baby onto the right side or prone with a second person. Skip if the baby is unstable."},
+ L5:{code:"LLP",name:"Left lower posterior",view:"back",core:false,where:"Left back, between the paravertebral line and the posterior axillary line, lower half to the diaphragm.",pos:"Same position as L4. Check the costodiaphragmatic recess for effusion."}
+};
+const ALLZ=["R1","R2","R3","R4","R5","L1","L2","L3","L4","L5"];
+const ORDER={"6":["R1","R2","R3","L1","L2","L3"],"10":["R1","R2","R3","L1","L2","L3","R4","R5","L4","L5"]};
+const FIND=[
+ {k:"sliding",g:"Pleura",l:"Lung sliding",o:["Present","Absent","Not assessed"],ref:"mmode"},
+ {k:"mmode",g:"Pleura",l:"M-mode",o:["Seashore","Stratosphere","Not done"],ref:"mmode"},
+ {k:"morph",g:"Pleura",l:"Pleural line morphology",o:["Thin","Irregular"],ref:"morphology"},
+ {k:"alines",g:"A",l:"A-lines",o:["Present","Absent"],ref:"alines"},
+ {k:"spared",g:"B",l:"Spared B-lines",o:["Absent","Present"],ref:"spared"},
+ {k:"confl",g:"B",l:"Confluent B-lines",o:["Absent","Present"],ref:"confluent"},
+ {k:"consol",g:"C",l:"Consolidation",o:["Absent","Present"],ref:"consolidation",size:"consolSize",unit:"cm",sizeLabel:"Depth (consolidation index)"},
+ {k:"airbr",g:"C",l:"Air bronchogram",o:["Absent","Present"],ref:"airbr",when:f=>f.consol==="Present"},
+ {k:"lp",g:"D",l:"Lung point",o:["Absent","Present"],ref:"lungpoint"},
+ {k:"dlp",g:"D",l:"Double lung point",o:["Absent","Present"],ref:"dlp"},
+ {k:"eff",g:"E",l:"Pleural effusion",o:["Absent","Present"],ref:"effusion",size:"effSize",unit:"mm",sizeLabel:"Maximum depth (transverse, 4th ICS)"}
+];
+const GROUPS=[["Pleura","P"],["A","A"],["B","B"],["C","C"],["D","D"],["E","E"]];
+const SCORE_DESC=["A-lines, or fewer than 3 B-lines","Spared (well-spaced) B-lines","Confluent B-lines, with or without subpleural consolidation","Extended consolidation"];
+const QC=[["pleura","Pleural line and rib shadows visible"],["sag","Sagittal view, image not tilted"],["glare","No glare, reflection or blur"],["noid","No patient name or ID in frame"]];
+const SUPPORT=["None","Low-flow oxygen","HFNC","CPAP","NIPPV","nHFO","CMV","iHFO"];
+const PROTOCOL_NAME="Pleura-ABCDE (Sandig et al. 2025)";
+const SCORE_NAME="Brat et al. 2015 LUS score, 0-3 per zone";
+const ATTR="Reference images: Sandig J, et al. Pleura-ABCDE - a structured expert-based protocol for neonatal lung ultrasound documentation and interpretation. Ultrasound J 2025;17:48. CC BY 4.0.";
+
+/* ================= storage (IndexedDB, memory fallback) ================= */
+const Store=(()=>{
+ let db=null,mem=null;
+ const open=()=>new Promise(res=>{
+  try{const r=indexedDB.open("neolung-scan",1);
+   r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore("exams",{keyPath:"id"});const s=d.createObjectStore("images",{keyPath:"id"});s.createIndex("exam","examId")};
+   r.onsuccess=()=>{db=r.result;res(true)};r.onerror=()=>{mem={exams:new Map(),images:new Map()};res(false)};
+  }catch(e){mem={exams:new Map(),images:new Map()};res(false)}});
+ const req=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+ const os=(n,m)=>db.transaction(n,m).objectStore(n);
+ return{open,get persistent(){return !!db},
+  all:async n=>mem?[...mem[n].values()]:req(os(n,"readonly").getAll()),
+  put:async(n,v)=>mem?mem[n].set(v.id,v):req(os(n,"readwrite").put(v)),
+  del:async(n,id)=>mem?mem[n].delete(id):req(os(n,"readwrite").delete(id)),
+  get:async(n,id)=>mem?mem[n].get(id):req(os(n,"readonly").get(id)),
+  imgs:async examId=>mem?[...mem.images.values()].filter(i=>i.examId===examId):req(os("images","readonly").index("exam").getAll(examId))
+ }})();
+
+/* ================= state ================= */
+let EX=[];                 // exams in memory
+let IMG=new Map();         // examId -> [image records]
+const URLS=new Map();      // imageId -> objectURL
+let V={view:"home",examId:null,zone:null,crop:null,delArm:null,exportMsg:null,incId:false};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const pad=n=>String(n).padStart(2,"0");
+const localDT=(d=new Date())=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const stamp=dt=>(dt||localDT()).replace(/-/g,"").replace("T","-").replace(":","");
+const ex=()=>EX.find(e=>e.id===V.examId);
+const imgsOf=(id,z)=>(IMG.get(id)||[]).filter(i=>!z||i.zone===z).sort((a,b)=>a.t-b.t);
+function url(rec){if(!URLS.has(rec.id))URLS.set(rec.id,URL.createObjectURL(rec.blob));return URLS.get(rec.id)}
+function toast(m,ms=2600){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,ms)}
+async function saveExam(e){e.updated=Date.now();await Store.put("exams",e)}
+
+function newExam(){
+ const d=new Date();const sid=`NL-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${String(Math.floor(Math.random()*9000)+1000)}`;
+ return{id:uid("e"),studyId:sid,created:Date.now(),updated:Date.now(),example:false,set:"6",
+  patient:{name:"",mrn:"",dob:"",sex:"",ga:"",bw:"",cw:""},
+  clin:{dt:localDT(),support:"",map:"",fio2:"",indication:"",operator:"",surf:""},
+  zones:Object.fromEntries(ALLZ.map(z=>[z,{f:{},score:null,comment:""}])),interp:"",exportedAt:null}
+}
+
+/* ================= clinical helpers ================= */
+function pnaDays(e){const {dob}=e.patient;if(!dob||!e.clin.dt)return null;const d=(new Date(e.clin.dt)-new Date(dob+"T00:00"))/864e5;return d>=0?Math.floor(d):null}
+function gaDays(s){const m=String(s||"").match(/^(\d{2})(?:\s*\+\s*(\d))?$/);return m?(+m[1])*7+(+(m[2]||0)):null}
+function cga(e){const g=gaDays(e.patient.ga),p=pnaDays(e);if(g===null||p===null)return"";const t=g+p;return `${Math.floor(t/7)}+${t%7}`}
+function weightKg(e){const w=+e.patient.cw||+e.patient.bw;return w?w/1000:null}
+function consolThreshold(e){const kg=weightKg(e);return kg?Math.min(+(0.5*kg).toFixed(2),1):null}
+function suggest(e,z){
+ const f=e.zones[z].f;
+ if(f.consol==="Present"){const s=parseFloat(f.consolSize);if(!s)return{v:null,why:"Enter the consolidation depth to get a suggestion"};
+  const kg=weightKg(e);const big=s>1||(kg&&s>=0.5*kg);if(big)return{v:3,why:`Consolidation ${s} cm meets the threshold (0.5 cm/kg or over 1 cm)`};}
+ if(f.confl==="Present")return{v:2,why:"Confluent B-lines"};
+ if(f.consol==="Present")return{v:2,why:"Consolidation below threshold (subpleural)"};
+ if(f.spared==="Present")return{v:1,why:"Spared B-lines"};
+ if(f.alines==="Present"&&f.spared==="Absent"&&f.confl==="Absent")return{v:0,why:"A-lines without B-lines"};
+ return{v:null,why:"Record A-lines and B-lines to get a suggestion"};
+}
+const required=f=>FIND.filter(d=>!d.when||d.when(f));
+function zoneState(e,z){
+ const Z=e.zones[z];const ims=imgsOf(e.id,z);const req=required(Z.f);const nf=req.filter(d=>Z.f[d.k]).length;
+ const good=ims.some(i=>i.type==="video"||QC.every(([k])=>i.qc&&i.qc[k]));
+ const touched=ims.length||nf||Z.score!==null;
+ if(!touched)return{s:"idle",nf,nreq:req.length,ims:ims.length,good};
+ if(ims.length&&good&&nf===req.length&&Z.score!==null)return{s:"good",nf,nreq:req.length,ims:ims.length,good};
+ return{s:"warn",nf,nreq:req.length,ims:ims.length,good};
+}
+const SCOL={idle:"var(--idle)",warn:"var(--warn)",good:"var(--good)"};
+function totals(e){
+ const s6=ORDER["6"].map(z=>e.zones[z].score);const s10=ALLZ.map(z=>e.zones[z].score);
+ const n6=s6.filter(v=>v!==null).length,n10=s10.filter(v=>v!==null).length;
+ return{n6,sum6:s6.reduce((a,v)=>a+(v??0),0),full6:n6===6,n10,sum10:s10.reduce((a,v)=>a+(v??0),0),full10:n10===10};
+}
+const doneCount=e=>ORDER[e.set].filter(z=>zoneState(e,z).s==="good").length;
+
+/* ================= chest diagram ================= */
+function chest(view,hl,e,size=150){
+ const front={R1:[46,42,46,38],R2:[46,80,46,40],R3:[14,58,30,62],L1:[108,42,46,38],L2:[108,80,46,40],L3:[156,58,30,62]};
+ const back={L4:[46,42,52,40],L5:[46,82,52,40],R4:[102,42,52,40],R5:[102,82,52,40]};
+ const B=view==="front"?front:back;
+ let s=`<svg viewBox="0 0 200 150" role="img" aria-label="${view==="front"?"Front":"Back"} of chest${hl?", "+hl+" highlighted":""}" style="max-width:${size*1.33}px">
+ <path d="M34 22 Q100 6 166 22 Q192 40 192 80 L188 136 Q100 146 12 136 L8 80 Q8 40 34 22Z" fill="var(--bg)" stroke="var(--line)" stroke-width="1.5"/>
+ <line x1="100" y1="18" x2="100" y2="140" stroke="var(--line)" stroke-dasharray="3 4"/>
+ ${view==="front"?`<line x1="20" y1="80" x2="180" y2="80" stroke="var(--line)" stroke-dasharray="2 4"/><text x="8" y="14" font-size="11" font-weight="700" fill="var(--muted)">R</text><text x="186" y="14" font-size="11" font-weight="700" fill="var(--muted)">L</text>`:
+ `<text x="8" y="14" font-size="11" font-weight="700" fill="var(--muted)">L</text><text x="186" y="14" font-size="11" font-weight="700" fill="var(--muted)">R</text><text x="100" y="14" text-anchor="middle" font-size="9" fill="var(--muted)">BACK</text>`}`;
+ Object.entries(B).forEach(([z,[x,y,w,h]])=>{const on=z===hl;const st=e?zoneState(e,z).s:"idle";const used=e?ORDER[e.set].includes(z):true;
+  s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${on?"var(--accent)":used?SCOL[st]:"var(--idle)"}" fill-opacity="${on?.85:used?(st==="idle"?.12:.3):.06}" stroke="${on?"var(--accent)":used?SCOL[st]:"var(--line)"}" stroke-width="${on?2:1}" ${used?"":'stroke-dasharray="3 3"'}/>
+  <text x="${x+w/2}" y="${y+h/2+4}" text-anchor="middle" font-size="11" font-weight="600" font-family="IBM Plex Mono, monospace" fill="${on?"var(--accent-ink)":"var(--ink)"}">${z}${e&&e.zones[z].score!==null&&!on?":"+e.zones[z].score:""}</text>`});
+ return s+"</svg>";
+}
+
+/* ================= views ================= */
+function render(){
+ const f={home:vHome,setup:vSetup,zone:vZone,crop:vCrop,summary:vSummary,refs:vRefs}[V.view]||vHome;
+ $("#app").innerHTML=f();
+ $("#dock").innerHTML=dock();
+ if(V.view==="crop")initCrop();
+}
+function go(view,o={}){Object.assign(V,{view,delArm:null},o);render();window.scrollTo(0,0)}
+function dock(){
+ const e=ex();
+ if(V.view==="zone"&&e){const ord=ORDER[e.set];const i=ord.indexOf(V.zone);
+  return `<div class="dock"><div class="wrap"><button class="btn" data-act="${i===0?"setup":"prevzone"}">${i===0?"← Details":"← "+ord[i-1]}</button>${i===ord.length-1?`<button class="btn primary" data-act="summary">Review and export →</button>`:`<button class="btn primary" data-act="nextzone">Next: ${ord[i+1]} →</button>`}</div></div>`}
+ return"";
+}
+
+function vHome(){
+ const list=[...EX].sort((a,b)=>b.updated-a.updated);
+ return `<div class="stack">
+ <div><h1>Lung ultrasound examinations</h1><p class="muted small" style="margin-top:4px">Step-by-step Pleura-ABCDE acquisition. Snap each zone from the ultrasound screen, record findings, then export a ZIP for the Google Drive review folder.</p></div>
+ <button class="btn primary block" data-act="new">New examination</button>
+ ${list.length?list.map(e=>{const t=totals(e);const d=doneCount(e),n=ORDER[e.set].length;return `<button class="exam" data-act="open" data-id="${e.id}">
+  <span><b>${esc(e.studyId)}</b> ${e.example?'<span class="pill p-warn">Example</span>':""} ${e.exportedAt?'<span class="pill p-good">Exported</span>':""}</span>
+  <span class="sc num">${t.full6?t.sum6:"–"}<small>${t.full6?"score /18":`${t.n6}/6 scored`}</small></span>
+  <span class="muted small">${esc(e.clin.dt.replace("T"," "))} · ${esc(e.clin.support||"support not set")} · ${d}/${n} zones complete</span></button>`}).join(""):`<div class="card"><p class="muted">No examinations on this device yet.</p></div>`}
+ <div class="note ${Store.persistent?"":"warn"}">${Store.persistent?"Examinations and images are stored only in this browser on this device. Export each examination after scanning, then delete it here. Clearing site data removes everything.":"Browser storage is unavailable here, so examinations last only until you close this page. Export before closing."}</div>
+ <p class="attr">${esc(ATTR)} Prototype for research use; not a validated medical device. Version ${APP_VERSION}.</p>
+ </div>`;
+}
+
+function vSetup(){
+ const e=ex();const P=e.patient,C=e.clin;const c=cga(e);
+ return `<form class="stack" id="setupForm" novalidate>
+ <div><h3>New examination</h3><h1>Patient and clinical details</h1></div>
+ <div class="card stack"><h2>Study identifier</h2>
+  <label class="f">Study ID (used in all exported file names)<input id="s-sid" name="studyId" value="${esc(e.studyId)}" required autocapitalize="characters"></label>
+  <p class="muted small">Name, registration number and date of birth stay on this device. They are left out of the export unless you choose to include them in the PDF.</p>
+  <div class="fields"><label class="f">Patient name (optional)<input id="s-name" name="p.name" value="${esc(P.name)}" placeholder="Baby of …"></label>
+  <label class="f">Registration no. (optional)<input id="s-mrn" name="p.mrn" value="${esc(P.mrn)}"></label></div></div>
+ <div class="card stack"><h2>Baby</h2><div class="fields">
+  <label class="f">Date of birth<input id="s-dob" name="p.dob" type="date" value="${esc(P.dob)}"></label>
+  <label class="f">Sex<select id="s-sex" name="p.sex">${["","Male","Female","Undetermined"].map(o=>`<option ${P.sex===o?"selected":""} value="${o}">${o||"Select"}</option>`).join("")}</select></label>
+  <label class="f">GA at birth<div class="unit"><input id="s-ga" name="p.ga" value="${esc(P.ga)}" placeholder="28+3" inputmode="decimal"><span>wk+d</span></div></label>
+  <label class="f">Corrected GA<input id="s-cga" value="${c||"From DOB and GA"}" disabled></label>
+  <label class="f">Birth weight<div class="unit"><input id="s-bw" name="p.bw" type="number" inputmode="numeric" value="${esc(P.bw)}"><span>g</span></div></label>
+  <label class="f">Current weight<div class="unit"><input id="s-cw" name="p.cw" type="number" inputmode="numeric" value="${esc(P.cw)}"><span>g</span></div></label>
+ </div><p class="muted small">Current weight sets the consolidation threshold (0.5 cm/kg).</p></div>
+ <div class="card stack"><h2>Examination</h2><div class="fields">
+  <label class="f">Date and time<input id="s-dt" name="c.dt" type="datetime-local" value="${esc(C.dt)}"></label>
+  <label class="f">Operator<input id="s-op" name="c.operator" value="${esc(C.operator)}" placeholder="Name or initials"></label>
+  <label class="f">Breathing support<select id="s-sup" name="c.support">${["",...SUPPORT].map(o=>`<option ${C.support===o?"selected":""} value="${o}">${o||"Select"}</option>`).join("")}</select></label>
+  <label class="f">Mean airway pressure<div class="unit"><input id="s-map" name="c.map" type="number" step="0.5" inputmode="decimal" value="${esc(C.map)}"><span>cmH₂O</span></div></label>
+  <label class="f">FiO₂<div class="unit"><input id="s-fio2" name="c.fio2" type="number" min="21" max="100" inputmode="numeric" value="${esc(C.fio2)}"><span>%</span></div></label>
+  <label class="f">Surfactant<input id="s-surf" name="c.surf" value="${esc(C.surf)}" placeholder="Not given / given date, time"></label>
+  <label class="f span">Indication<input id="s-ind" name="c.indication" value="${esc(C.indication)}" placeholder="e.g. Respiratory distress on CPAP, surfactant decision"></label>
+ </div></div>
+ <div class="card stack"><h2>Zones to scan</h2>
+  <div class="seg" role="radiogroup" aria-label="Zones to scan">
+   <button type="button" data-act="set" data-v="6" aria-pressed="${e.set==="6"}">6 zones · anterior + lateral</button>
+   <button type="button" data-act="set" data-v="10" aria-pressed="${e.set==="10"}">10 zones · adds posterior</button></div>
+  <div class="row" style="justify-content:center;gap:4px">${chest("front",null,e,120)}${e.set==="10"?chest("back",null,e,120):""}</div>
+  <p class="muted small">The 6 anterior and lateral zones give the 0–18 score. Posterior zones R4, R5, L4, L5 need the baby turned; add them when it is safe.</p></div>
+ <button class="btn primary block" type="submit">Start scanning: ${ORDER[e.set][0]}</button>
+ ${e.example?"":`<button class="btn danger block" type="button" data-act="${V.delArm===e.id?"delete":"armdel"}">${V.delArm===e.id?"Tap again to delete this examination":"Delete examination"}</button>`}
+ </form>`;
+}
+
+function vZone(){
+ const e=ex();const z=V.zone;const Z=e.zones[z];const meta=ZONES[z];const ord=ORDER[e.set];const st=zoneState(e,z);
+ const ims=imgsOf(e.id,z);const sug=suggest(e,z);const th=consolThreshold(e);
+ const rail=`<nav class="rail" aria-label="Zones">${ord.map(k=>`<button class="zc" data-act="zone" data-z="${k}" ${k===z?'aria-current="step"':""}>${k}<small>${ZONES[k].code}</small><i style="background:${SCOL[zoneState(e,k).s]}"></i></button>`).join("")}</nav>`;
+ const c1=`<section class="card"><div class="card-h"><span class="step">1</span><h2>Place the probe</h2></div>
+  <div class="place"><div>${chest(meta.view,z,e)}</div><div class="stack" style="gap:8px">
+   <p><b>${esc(meta.where)}</b></p><p class="small">${esc(meta.pos)}</p>
+   <p class="small">Linear high-frequency probe, <b>sagittal</b>, perpendicular to the ribs, marker towards the head. Watch at least 3 breaths and save a 3-second clip on the machine.</p></div></div>
+  <details><summary>Probe and machine settings</summary><ul>
+   <li>Two ribs with their shadows and the pleural line between them in view.</li>
+   <li>Depth about 3–4 cm, focus at the pleural line.</li>
+   <li>Turn off harmonic imaging and speckle-reduction filters where possible.</li>
+   <li>Lung sliding unclear: add M-mode through the pleural line.</li>
+   <li>Effusion: add a transverse view in the 4th intercostal space and measure the maximum depth.</li></ul></details></section>`;
+ const c2=`<section class="card"><div class="card-h"><span class="step ${st.ims&&st.good?"done":""}">2</span><h2>Snapshot</h2><span class="sp" style="flex:1"></span><span class="muted small num">${ims.length} saved</span></div>
+  <p class="small muted" style="margin-bottom:10px">Freeze the image on the machine. Hold the phone parallel to the screen, fill the frame with the image area, and avoid reflections. You can crop out labels next.</p>
+  <div class="row" style="margin-bottom:12px"><span class="btn primary filebtn" style="flex:1">Take photo<input type="file" id="cam-${z}" accept="image/*" capture="environment" data-src="Phone camera"></span>
+  <span class="btn filebtn" style="flex:1">Upload image or clip<input type="file" id="up-${z}" accept="image/*,video/mp4,video/quicktime" multiple data-src="Upload"></span></div>
+  ${ims.length?`<div class="shots">${ims.map((m,i)=>`<div class="shot"><div class="vis">${m.type==="video"?`<video src="${url(m)}" controls playsinline muted></video>`:`<img src="${url(m)}" alt="${z} snapshot ${i+1}">`}</div>
+   <div class="body"><div class="row between"><span class="mono small">${z}_${i+1} · ${esc(m.source)}${m.w?` · ${m.w}×${m.h}`:""}</span><button class="btn ghost sm danger" data-act="${V.delArm===m.id?"delimg":"armimg"}" data-id="${m.id}">${V.delArm===m.id?"Tap to confirm":"Remove"}</button></div>
+   ${m.type==="video"?`<p class="small muted">Video clip. Check quality on playback.</p>`:`<div class="qc">${QC.map(([k,l])=>`<label class="check"><input type="checkbox" data-qc="${k}" data-id="${m.id}" ${m.qc&&m.qc[k]?"checked":""}><span>${l}</span></label>`).join("")}</div>
+   ${QC.every(([k])=>m.qc&&m.qc[k])?`<span class="pill p-good">Quality checked</span>`:`<span class="pill p-warn">Tick all four checks</span>`}`}</div></div>`).join("")}</div>`:`<div class="note">No snapshot yet for ${z}.</div>`}</section>`;
+ let cur="";const rows=FIND.filter(d=>!d.when||d.when(Z.f)).map(d=>{let h="";if(d.g!==cur){cur=d.g;const L=GROUPS.find(g=>g[0]===d.g);h+=`<div class="grp"><b>${L[1]}</b><h3>${d.g==="Pleura"?"Pleura":{A:"A-lines",B:"B-lines",C:"Consolidation",D:"Dynamics",E:"Effusion"}[d.g]}</h3></div>`}
+  return h+`<div class="frow"><div class="lab"><span>${d.l}</span><button type="button" class="ex" data-act="ref" data-ref="${d.ref}">See example</button></div>
+  <div class="seg" role="group" aria-label="${d.l}">${d.o.map(o=>`<button type="button" data-act="find" data-k="${d.k}" data-v="${o}" aria-pressed="${Z.f[d.k]===o}">${o}</button>`).join("")}</div>
+  ${d.size&&Z.f[d.k]==="Present"?`<label class="f">${d.sizeLabel}<div class="unit"><input id="sz-${z}-${d.size}" type="number" step="${d.unit==="cm"?"0.1":"1"}" inputmode="decimal" data-size="${d.size}" value="${esc(Z.f[d.size]||"")}"><span>${d.unit}</span></div>${d.k==="consol"&&th?`<span class="small muted" style="font-weight:400">Threshold for this baby: ${th} cm (0.5 cm/kg, or over 1 cm). Smaller lesions count as subpleural.</span>`:""}</label>`:""}</div>`}).join("");
+ const c3=`<section class="card"><div class="card-h"><span class="step ${st.nf===st.nreq?"done":""}">3</span><h2>Pleura-ABCDE findings</h2><span style="flex:1"></span><span class="muted small num">${st.nf}/${st.nreq}</span></div>${rows}</section>`;
+ const c4=`<section class="card"><div class="card-h"><span class="step ${Z.score!==null?"done":""}">4</span><h2>Zone score</h2></div>
+  <p class="small muted" style="margin-bottom:10px">${sug.v!==null?`Suggested from findings: <b class="mono">${sug.v}</b> (${esc(sug.why)})`:esc(sug.why)}</p>
+  <div class="scores">${[0,1,2,3].map(s=>`<button type="button" data-act="score" data-v="${s}" aria-pressed="${Z.score===s}">${sug.v===s?'<span class="sug">Suggested</span>':""}<b>${s}</b><small>${SCORE_DESC[s]}</small></button>`).join("")}</div>
+  ${Z.score!==null&&sug.v!==null&&Z.score!==sug.v?`<p class="note warn" style="margin-top:10px">Your score differs from the suggestion. Add a short comment explaining why.</p>`:""}
+  <label class="f" style="margin-top:12px">Comment<textarea id="cm-${z}" data-bind="comment" placeholder="e.g. limited window, baby moving">${esc(Z.comment)}</textarea></label></section>`;
+ return `<div class="stack">
+ <div><div class="row between"><h3>${esc(e.studyId)} · zone ${ord.indexOf(z)+1} of ${ord.length}</h3><span class="pill ${st.s==="good"?"p-good":st.s==="warn"?"p-warn":"p-idle"}">${st.s==="good"?"Complete":st.s==="warn"?"In progress":"Not started"}</span></div>
+ <h1><span class="mono">${z}</span> · ${meta.name}</h1>${rail}</div>
+ ${c1}${c2}${c3}${c4}</div>`;
+}
+
+function vCrop(){
+ const c=V.crop;
+ return `<div class="stack"><div><h3>${esc(V.zone)} snapshot</h3><h1>Crop to the ultrasound image</h1>
+ <p class="muted small" style="margin-top:4px">Drag across the image to keep only the scan area. Cut out any patient name, ID or machine labels.</p></div>
+ <div class="cropbox"><canvas id="cropc" aria-label="Drag to select the crop area"></canvas></div>
+ <div class="row"><button class="btn" data-act="rot">Rotate 90°</button><button class="btn" data-act="cropreset">Clear selection</button><span class="muted small" id="cropinfo"></span></div>
+ <div class="row"><button class="btn primary" style="flex:1" data-act="cropsave">${c&&c.rect?"Save cropped image":"Save whole image"}</button><button class="btn" data-act="cropcancel">Cancel</button></div></div>`;
+}
+
+function cell(e,z,k){
+ const f=e.zones[z].f;const v=f[k];if(!ORDER[e.set].includes(z))return'<td class="off">·</td>';if(!v)return"<td class=\"off\">–</td>";
+ const short={Present:"+",Absent:"−","Not assessed":"n/a",Seashore:"SS",Stratosphere:"ST","Not done":"nd",Thin:"thin",Irregular:"irr"}[v]||v;
+ const size=(k==="consol"&&v==="Present"&&f.consolSize)?` ${f.consolSize}cm`:(k==="eff"&&v==="Present"&&f.effSize)?` ${f.effSize}mm`:"";
+ return `<td>${short}${size}</td>`;
+}
+function vSummary(){
+ const e=ex();const t=totals(e);const ord=ORDER[e.set];const inc=ord.filter(z=>zoneState(e,z).s!=="good");const ims=imgsOf(e.id);const pna=pnaDays(e);
+ let cur="";const body=FIND.map(d=>{let h="";if(d.g!==cur){cur=d.g;h+=`<tr class="grp-r"><td colspan="11">${d.g==="Pleura"?"Pleura":d.g+" · "+{A:"A-lines",B:"B-lines",C:"Consolidation",D:"Dynamics",E:"Effusion"}[d.g]}</td></tr>`}
+  return h+`<tr><td>${d.l}</td>${ALLZ.map(z=>cell(e,z,d.k)).join("")}</tr>`}).join("");
+ return `<div class="stack">
+ <div><h3>${esc(e.studyId)} ${e.example?'<span class="pill p-warn">Example</span>':""}</h3><h1>Review and export</h1>
+ <p class="muted small" style="margin-top:4px">${esc(e.clin.dt.replace("T"," "))} · GA ${esc(e.patient.ga||"–")}${cga(e)?` · CGA ${cga(e)}`:""}${pna!==null?` · day ${pna}`:""} · ${esc(e.clin.support||"–")}${e.clin.fio2?` · FiO₂ ${esc(e.clin.fio2)}%`:""}${e.clin.map?` · MAP ${esc(e.clin.map)}`:""}</p></div>
+ ${inc.length?`<div class="note warn">Incomplete zones: ${inc.join(", ")}. You can still export; they are marked incomplete.</div>`:`<div class="note good">All ${ord.length} zones complete.</div>`}
+ <div class="card"><div class="row between" style="align-items:flex-end">
+  <div><h3>LUS score · 6 zones</h3><div class="big">${t.full6?`${t.sum6}<small>/18</small>`:`<small>${t.n6}/6 zones scored</small>`}</div></div>
+  ${e.set==="10"?`<div style="text-align:right"><h3>10 zones</h3><div class="big">${t.full10?`${t.sum10}<small>/30</small>`:`<small>${t.n10}/10</small>`}</div></div>`:""}</div>
+  <div class="row" style="justify-content:center;gap:4px;margin-top:10px">${chest("front",null,e,130)}${e.set==="10"?chest("back",null,e,130):""}</div>
+  <p class="muted small">No severity category or treatment threshold is applied.</p></div>
+ <div class="card"><h2 style="margin-bottom:10px">Pleura-ABCDE findings</h2><div class="tbl"><table><thead><tr><th>Finding</th>${ALLZ.map(z=>`<th>${z}</th>`).join("")}</tr></thead><tbody>${body}
+  <tr><td>Image quality</td>${ALLZ.map(z=>ord.includes(z)?`<td>${zoneState(e,z).ims?(zoneState(e,z).good?"ok":"check"):"–"}</td>`:'<td class="off">·</td>').join("")}</tr>
+  <tr><td><b>Score</b></td>${ALLZ.map(z=>ord.includes(z)?`<td><b>${e.zones[z].score??"–"}</b></td>`:'<td class="off">·</td>').join("")}</tr></tbody></table></div>
+  <p class="small muted" style="margin-top:6px">+ present · − absent · SS seashore · ST stratosphere · nd not done · · not scanned</p></div>
+ <div class="card"><h2 style="margin-bottom:10px">Snapshots <span class="muted small num">(${ims.length})</span></h2>${ims.length?`<div class="sumg">${ims.map(m=>`<figure><${m.type==="video"?"video muted playsinline":"img alt=\"\""} src="${url(m)}"${m.type==="video"?"></video>":">"}<figcaption>${m.zone}</figcaption></figure>`).join("")}</div>`:`<p class="muted">No snapshots yet.</p>`}</div>
+ <div class="card"><label class="f">Interpretation<textarea id="interp" data-bind="interp" placeholder="Clinician's interpretation, integrating clinical findings">${esc(e.interp)}</textarea></label></div>
+ <div class="card stack"><h2>Export for AI image review</h2>
+  <p class="small">Creates <span class="mono">${esc(e.studyId)}_${stamp(e.clin.dt)}.zip</span> with the PDF protocol, every snapshot named by zone, <span class="mono">metadata.json</span> and <span class="mono">findings.csv</span>. Upload it to the NeoLung AI review folder in Google Drive.</p>
+  <label class="check"><input type="checkbox" id="incid" data-act="incid" ${V.incId?"checked":""}><span>Include name, registration number and date of birth in the PDF. Images and metadata never include them.</span></label>
+  <button class="btn primary block" data-act="export">Download ZIP for Google Drive</button>
+  <button class="btn block" data-act="exportpdf">Download PDF protocol only</button>
+  ${V.exportMsg?`<div class="note ${V.exportMsg.ok?"good":"crit"}">${V.exportMsg.html}</div>`:""}
+  <details><summary>Upload from a phone</summary><ul>
+   <li>iPhone: the share sheet opens. Choose <b>Drive</b> and the review folder, or <b>Save to Files</b> and upload later.</li>
+   <li>Android: the ZIP saves to Downloads. In the Drive app, tap <b>+</b>, then <b>Upload</b>, and choose the file.</li>
+   <li>Drive shows the ZIP as one file. That is fine for the AI pipeline; it unzips on import.</li></ul></details>
+ </div>
+ <div class="row"><button class="btn" data-act="zone" data-z="${ord[0]}">Back to zones</button>${e.example?"":`<button class="btn danger" data-act="${V.delArm===e.id?"delete":"armdel"}">${V.delArm===e.id?"Tap again to delete from this device":"Delete from this device"}</button>`}</div>
+ </div>`;
+}
+
+function vRefs(){
+ const R=window.NL_REFS||{};const order=["alines","spared","confluent","consolidation","airbr","morphology","mmode","lungpoint","dlp","effusion","table"];
+ return `<div class="stack"><div><h3>Pleura-ABCDE</h3><h1>Reference images</h1><p class="muted small" style="margin-top:4px">What each finding looks like. Open any of these from a zone with “See example”.</p></div>
+ <div class="refs">${order.filter(k=>R[k]).map(k=>`<figure class="ref"><img src="${R[k].src}" alt="${esc(R[k].title)}" loading="lazy"><figcaption><b>${esc(R[k].title)}</b>${esc(R[k].caption)}</figcaption></figure>`).join("")}</div>
+ <p class="attr">${esc(ATTR)}</p>
+ ${V.prev&&V.prev!=="home"&&V.examId?`<button class="btn" data-act="back">← Back</button>`:""}</div>`;
+}
+function openRef(k){const r=(window.NL_REFS||{})[k];if(!r)return;
+ $("#modal").innerHTML=`<div class="modal" data-act="closeref" role="dialog" aria-modal="true" aria-label="${esc(r.title)}"><div class="in" data-stop="1"><img src="${r.src}" alt="${esc(r.title)}"><div class="cap"><b>${esc(r.title)}</b><span class="small">${esc(r.caption)}</span><span class="attr">Sandig J, et al. Ultrasound J 2025;17:48. CC BY 4.0.</span><button class="btn" data-act="closeref">Close</button></div></div></div>`}
+
+/* ================= image intake + crop ================= */
+async function intake(files,source){
+ const e=ex();if(!e)return;const z=V.zone;const list=[...files];
+ for(const f of list){
+  if(f.type.startsWith("video")||/\.(mp4|mov)$/i.test(f.name)){const rec={id:uid("i"),examId:e.id,zone:z,type:"video",blob:f,ext:/\.mov$/i.test(f.name)||f.type==="video/quicktime"?"mov":"mp4",source,t:Date.now(),qc:{}};await Store.put("images",rec);IMG.set(e.id,[...(IMG.get(e.id)||[]),rec]);continue}
+  if(!f.type.startsWith("image")&&!/\.(jpe?g|png|heic|webp)$/i.test(f.name)){toast(`${f.name}: not an image or clip`);continue}
+  if(list.length===1){try{const bmp=await loadImage(f);V.crop={canvas:bmp,rect:null,source};return go("crop",{})}catch(err){toast("This image format cannot be opened here. Try JPEG or PNG.");return}}
+  try{const c=await loadImage(f);await storeCanvas(c,null,source)}catch(err){toast(`${f.name} could not be opened`)}
+ }
+ await saveExam(e);render();
+}
+function loadImage(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>{const max=2400;const s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));const c=document.createElement("canvas");c.width=Math.round(im.naturalWidth*s);c.height=Math.round(im.naturalHeight*s);c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c)};im.onerror=()=>{URL.revokeObjectURL(u);rej()};im.src=u})}
+async function storeCanvas(src,rect,source){
+ const e=ex();const r=rect||{x:0,y:0,w:src.width,h:src.height};const max=1600;const s=Math.min(1,max/Math.max(r.w,r.h));
+ const c=document.createElement("canvas");c.width=Math.max(1,Math.round(r.w*s));c.height=Math.max(1,Math.round(r.h*s));
+ c.getContext("2d").drawImage(src,r.x,r.y,r.w,r.h,0,0,c.width,c.height);
+ const blob=await new Promise(res=>c.toBlob(res,"image/jpeg",0.9));
+ const rec={id:uid("i"),examId:e.id,zone:V.zone,type:"image",ext:"jpg",blob,w:c.width,h:c.height,source,cropped:!!rect,t:Date.now(),qc:{}};
+ await Store.put("images",rec);IMG.set(e.id,[...(IMG.get(e.id)||[]),rec]);return rec;
+}
+function initCrop(){
+ const cv=$("#cropc");const C=V.crop;if(!cv||!C)return;const src=C.canvas;cv.width=src.width;cv.height=src.height;const g=cv.getContext("2d");
+ const draw=()=>{g.drawImage(src,0,0);if(C.rect){const r=C.rect;g.fillStyle="rgba(0,0,0,.6)";g.fillRect(0,0,cv.width,r.y);g.fillRect(0,r.y+r.h,cv.width,cv.height-r.y-r.h);g.fillRect(0,r.y,r.x,r.h);g.fillRect(r.x+r.w,r.y,cv.width-r.x-r.w,r.h);g.strokeStyle="#6db2cf";g.lineWidth=Math.max(2,cv.width/300);g.setLineDash([cv.width/60,cv.width/90]);g.strokeRect(r.x,r.y,r.w,r.h);g.setLineDash([])}
+  const info=$("#cropinfo");if(info)info.textContent=C.rect?`${Math.round(C.rect.w)}×${Math.round(C.rect.h)} px`:`${cv.width}×${cv.height} px, whole image`};
+ draw();let start=null;
+ const pt=ev=>{const b=cv.getBoundingClientRect();const sx=cv.width/b.width;return{x:Math.max(0,Math.min(cv.width,(ev.clientX-b.left)*sx)),y:Math.max(0,Math.min(cv.height,(ev.clientY-b.top)*sx))}};
+ cv.onpointerdown=ev=>{cv.setPointerCapture(ev.pointerId);start=pt(ev);C.rect=null;draw()};
+ cv.onpointermove=ev=>{if(!start)return;const p=pt(ev);const r={x:Math.min(start.x,p.x),y:Math.min(start.y,p.y),w:Math.abs(p.x-start.x),h:Math.abs(p.y-start.y)};C.rect=r.w>20&&r.h>20?r:null;draw()};
+ cv.onpointerup=()=>{start=null;const b=document.querySelector('[data-act="cropsave"]');if(b)b.textContent=C.rect?"Save cropped image":"Save whole image"};
+ C.redraw=draw;
+}
+
+/* ================= export ================= */
+function blobToDataURL(b){return new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)})}
+function fileNames(e){
+ const base=`${e.studyId}_${stamp(e.clin.dt)}`;const map=new Map();
+ ALLZ.forEach(z=>imgsOf(e.id,z).forEach((m,i)=>map.set(m.id,`${base}_${z}-${ZONES[z].code}_${i+1}.${m.ext||"jpg"}`)));return{base,map};
+}
+function metadata(e,names){
+ const t=totals(e);
+ return{schema:"neolung-lus-export/1.0",exported_at:new Date().toISOString(),study_id:e.studyId,example_data:!!e.example,
+  protocol:PROTOCOL_NAME,score_system:SCORE_NAME,zones_scanned:ORDER[e.set],
+  exam:{datetime_local:e.clin.dt,postnatal_age_days:pnaDays(e),ga_at_birth:e.patient.ga||null,corrected_ga:cga(e)||null,sex:e.patient.sex||null,birth_weight_g:+e.patient.bw||null,current_weight_g:+e.patient.cw||null,
+   breathing_support:e.clin.support||null,mean_airway_pressure_cmH2O:+e.clin.map||null,fio2_percent:+e.clin.fio2||null,surfactant:e.clin.surf||null,indication:e.clin.indication||null,operator:e.clin.operator||null},
+  totals:{score_6_zone:t.full6?t.sum6:null,score_10_zone:t.full10?t.sum10:null,zones_scored_6:t.n6},
+  zones:ALLZ.filter(z=>ORDER[e.set].includes(z)).map(z=>{const Z=e.zones[z];const s=suggest(e,z);return{zone:z,code:ZONES[z].code,name:ZONES[z].name,complete:zoneState(e,z).s==="good",
+   findings:Z.f,score:Z.score,score_suggested:s.v,score_overridden:Z.score!==null&&s.v!==null&&Z.score!==s.v,comment:Z.comment||null,
+   media:imgsOf(e.id,z).map(m=>({file:"images/"+names.get(m.id),type:m.type,acquisition:m.source==="Phone camera"?"phone photo of ultrasound screen":"uploaded file",width:m.w||null,height:m.h||null,cropped:!!m.cropped,quality_checks:m.qc||{},quality_adequate:m.type==="video"?null:QC.every(([k])=>m.qc&&m.qc[k])}))}}),
+  interpretation:e.interp||null,identifiers_included:false,
+  attribution:ATTR};
+}
+function csv(e){
+ const head=["study_id","zone","code","scanned",...FIND.map(d=>d.k),"consolidation_cm","effusion_mm","score","score_suggested","n_media","comment"];
+ const q=v=>{v=v===null||v===undefined?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+ return [head.join(","),...ALLZ.map(z=>{const Z=e.zones[z];return[e.studyId,z,ZONES[z].code,ORDER[e.set].includes(z)?"yes":"no",...FIND.map(d=>Z.f[d.k]||""),Z.f.consolSize||"",Z.f.effSize||"",Z.score??"",suggest(e,z).v??"",imgsOf(e.id,z).length,Z.comment||""].map(q).join(",")})].join("\n");
+}
+async function buildPDF(e,names,incId){
+ const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"a4"});const W=210,M=14;let y=16;
+ const t=totals(e);const ord=ORDER[e.set];
+ const ink=[18,32,42],mut=[86,102,111],acc=[28,93,120],line=[200,210,216];
+ doc.setTextColor(...ink);doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text("Pleura-ABCDE protocol",M,y);
+ doc.setFont("helvetica","normal");doc.setFontSize(9.5);doc.setTextColor(...mut);doc.text("Neonatal lung ultrasound examination  |  NeoLung Scan export",M,y+6);
+ doc.setFont("helvetica","bold");doc.setTextColor(...acc);doc.setFontSize(11);doc.text(e.studyId+(e.example?"  (EXAMPLE)":""),W-M,y,{align:"right"});
+ y+=13;
+ const kv=[["Exam date/time",e.clin.dt.replace("T"," ")],["Gestational age",e.patient.ga?e.patient.ga+" wk":"-"],["Corrected GA",cga(e)?cga(e)+" wk":"-"],["Postnatal age",pnaDays(e)!==null?pnaDays(e)+" days":"-"],
+  ["Breathing support",e.clin.support||"-"],["Mean airway pressure",e.clin.map?e.clin.map+" cmH2O":"-"],["FiO2",e.clin.fio2?e.clin.fio2+" %":"-"],["Weight",(e.patient.cw||e.patient.bw)?(e.patient.cw||e.patient.bw)+" g":"-"],
+  ["Surfactant",e.clin.surf||"-"],["Operator",e.clin.operator||"-"]];
+ if(incId)kv.unshift(["Name",e.patient.name||"-"],["Registration no.",e.patient.mrn||"-"],["Date of birth",e.patient.dob||"-"],["Sex",e.patient.sex||"-"]);
+ doc.setFontSize(8.5);const colW=(W-2*M)/2;kv.forEach((p,i)=>{const cx=M+(i%2)*colW,cy=y+Math.floor(i/2)*5.6;doc.setFont("helvetica","normal");doc.setTextColor(...mut);doc.text(p[0],cx,cy);doc.setTextColor(...ink);doc.setFont("helvetica","bold");doc.text(String(p[1]).slice(0,48),cx+34,cy)});
+ y+=Math.ceil(kv.length/2)*5.6+1;doc.setFont("helvetica","normal");doc.setTextColor(...mut);doc.text("Indication",M,y);doc.setTextColor(...ink);doc.text(doc.splitTextToSize(e.clin.indication||"-",W-2*M-34),M+34,y);y+=8;
+ // grid
+ const x0=M,labW=46,gap=4,cw=(W-2*M-labW-gap)/10,rh=5.4;
+ const zx=i=>x0+labW+i*cw+(i>=5?gap:0);
+ doc.setFillColor(238,242,244);doc.rect(x0,y,W-2*M,rh*2,"F");doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.setTextColor(...acc);
+ doc.text("Right lung",zx(0)+cw*2.5,y+3.8,{align:"center"});doc.text("Left lung",zx(5)+cw*2.5,y+3.8,{align:"center"});
+ doc.setTextColor(...ink);ALLZ.forEach((z,i)=>doc.text(z,zx(i)+cw/2,y+rh+3.8,{align:"center"}));y+=rh*2;
+ const short=(k,v,f)=>{if(!v)return"";const s={Present:"+",Absent:"-","Not assessed":"n/a",Seashore:"SS",Stratosphere:"ST","Not done":"nd",Thin:"thin",Irregular:"irreg"}[v]||v;
+  if(k==="consol"&&v==="Present"&&f.consolSize)return"+ "+f.consolSize;if(k==="eff"&&v==="Present"&&f.effSize)return"+ "+f.effSize;return s};
+ let curG="";doc.setFontSize(8);
+ const row=(label,fn,bold)=>{doc.setDrawColor(...line);doc.line(x0,y+rh,W-M,y+rh);doc.setFont("helvetica",bold?"bold":"normal");doc.setTextColor(...ink);doc.text(label,x0+2,y+3.8);
+  ALLZ.forEach((z,i)=>{if(!ord.includes(z)){doc.setFillColor(245,247,248);doc.rect(zx(i),y,cw,rh,"F");return}doc.text(String(fn(z)),zx(i)+cw/2,y+3.8,{align:"center"})});y+=rh};
+ FIND.forEach(d=>{if(d.g!==curG){curG=d.g;doc.setFillColor(228,234,237);doc.rect(x0,y,W-2*M,rh,"F");doc.setFont("helvetica","bold");doc.setTextColor(...acc);
+   doc.text(d.g==="Pleura"?"Pleura":d.g+"   "+{A:"A-lines",B:"B-lines",C:"Consolidation (cm)",D:"Dynamics",E:"Effusion (mm)"}[d.g],x0+2,y+3.8);y+=rh}
+  row(d.l,z=>short(d.k,e.zones[z].f[d.k],e.zones[z].f))});
+ row("Image quality",z=>{const s=zoneState(e,z);return s.ims?(s.good?"ok":"check"):""});
+ doc.setFillColor(224,237,243);doc.rect(x0,y,W-2*M,rh+1,"F");row("Score (0-3)",z=>e.zones[z].score??"",true);
+ doc.setFontSize(7);doc.setTextColor(...mut);doc.setFont("helvetica","normal");doc.text("+ present   - absent   SS seashore   ST stratosphere   nd not done   shaded = not scanned",x0,y+4);y+=9;
+ // totals
+ doc.setDrawColor(...acc);doc.setLineWidth(.5);doc.rect(x0,y,W-2*M,15);doc.setLineWidth(.2);
+ doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...ink);doc.text("LUS score, 6 zones (R1-R3, L1-L3)",x0+3,y+6);
+ doc.setFontSize(16);doc.text(t.full6?`${t.sum6} / 18`:`incomplete (${t.n6}/6)`,x0+3,y+12.5);
+ if(e.set==="10"){doc.setFontSize(10);doc.text("10 zones",x0+110,y+6);doc.setFontSize(16);doc.text(t.full10?`${t.sum10} / 30`:`incomplete (${t.n10}/10)`,x0+110,y+12.5)}
+ y+=20;doc.setFontSize(9.5);doc.setFont("helvetica","bold");doc.text("Interpretation",x0,y);doc.setFont("helvetica","normal");doc.setFontSize(9);
+ const it=doc.splitTextToSize(e.interp||"-",W-2*M);doc.text(it.slice(0,10),x0,y+5);y+=6+Math.min(it.length,10)*4;
+ const inc=ord.filter(z=>zoneState(e,z).s!=="good");if(inc.length){doc.setTextColor(179,38,30);doc.text("Incomplete zones: "+inc.join(", "),x0,y+2);doc.setTextColor(...ink)}
+ const comments=ord.filter(z=>e.zones[z].comment);
+ const footer=()=>{doc.setFontSize(6.8);doc.setTextColor(...mut);doc.text(doc.splitTextToSize(`Protocol: Sandig J et al. Ultrasound J 2025;17:48 (CC BY 4.0). Score: Brat R et al. JAMA Pediatr 2015. Generated ${new Date().toISOString().slice(0,16).replace("T"," ")} by NeoLung Scan prototype; not a validated medical device. No severity category or treatment threshold applied.`,W-2*M),M,288)};
+ footer();
+ // comments + images
+ const items=[];ALLZ.forEach(z=>imgsOf(e.id,z).forEach((m,i)=>items.push({m,z,i})));
+ if(comments.length||items.length){doc.addPage();y=16;doc.setTextColor(...ink);doc.setFont("helvetica","bold");doc.setFontSize(13);doc.text("Snapshots by zone",M,y);doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(...mut);doc.text(e.studyId,W-M,y,{align:"right"});y+=6;
+  if(comments.length){doc.setTextColor(...ink);comments.forEach(z=>{const l=doc.splitTextToSize(`${z}: ${e.zones[z].comment}`,W-2*M);doc.text(l,M,y+3);y+=l.length*4+1});y+=3}}
+ const boxH=112;
+ for(const it of items){
+  if(y+boxH+12>282){footer();doc.addPage();y=16}
+  const {m,z,i}=it;const Z=e.zones[z];
+  doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...ink);doc.text(`${z} ${ZONES[z].code} - ${ZONES[z].name}  |  image ${i+1}  |  score ${Z.score??"-"}`,M,y+4);
+  doc.setFont("helvetica","normal");doc.setFontSize(7.5);doc.setTextColor(...mut);doc.text(names.get(m.id),M,y+8.5);y+=11;
+  if(m.type==="video"){doc.setFillColor(10,14,17);doc.rect(M,y,W-2*M,24,"F");doc.setTextColor(200,212,218);doc.setFontSize(9);doc.text("Video clip - see images folder",W/2,y+13,{align:"center"});y+=30;continue}
+  const data=await blobToDataURL(m.blob);const s=Math.min((W-2*M)/m.w,(boxH-14)/m.h);const iw=m.w*s,ih=m.h*s;
+  doc.setFillColor(10,14,17);doc.rect(M,y,W-2*M,ih,"F");doc.addImage(data,"JPEG",M+(W-2*M-iw)/2,y,iw,ih);y+=ih+3;
+  const ok=QC.every(([k])=>m.qc&&m.qc[k]);doc.setFontSize(7.5);doc.setTextColor(...(ok?[43,135,84]:[179,119,9]));doc.text(ok?"Quality checks passed":"Quality checks incomplete",M,y+2);y+=8;
+ }
+ if(items.length)footer();
+ return doc.output("blob");
+}
+async function getDownloads(){try{return window.claude&&typeof window.claude.use==="function"?await window.claude.use("downloads"):null}catch(err){return null}}
+async function deliver(fname,blob){
+ const dl=await getDownloads();
+ if(dl){const r=await dl.save({filename:fname,data:blob});return r.status==="delivered"?"sent":"saved"}
+ const type=fname.endsWith(".pdf")?"application/pdf":"application/zip";
+ try{const file=new File([blob],fname,{type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+   try{await navigator.share({files:[file],title:fname});return "shared"}
+   catch(err){if(err&&err.name==="AbortError")throw{code:"declined"}}}
+ }catch(err){if(err&&err.code)throw err}
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;a.rel="noopener";document.body.appendChild(a);a.click();
+ setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},10000);return "downloaded";
+}
+async function doExport(pdfOnly){
+ const e=ex();if(!window.jspdf||(!pdfOnly&&!window.JSZip)){V.exportMsg={ok:false,html:"The export libraries did not load. Reload the app and try again."};return render()}
+ $("#busy").hidden=false;let blob,fname;
+ try{const {base,map}=fileNames(e);const pdf=await buildPDF(e,map,V.incId);
+  if(pdfOnly){blob=pdf;fname=`${base}_protocol.pdf`}
+  else{const zip=new JSZip();const root=zip.folder(base);root.file(`${base}_protocol.pdf`,pdf);const imf=root.folder("images");
+   imgsOf(e.id).forEach(m=>imf.file(map.get(m.id),m.blob));root.file("metadata.json",JSON.stringify(metadata(e,map),null,2));root.file("findings.csv",csv(e));
+   root.file("README.txt",`NeoLung Scan export\nStudy ID: ${e.studyId}\nProtocol: ${PROTOCOL_NAME}\nScore: ${SCORE_NAME}\nImages are named STUDYID_YYYYMMDD-HHMM_ZONE-CODE_N. metadata.json links each image to its zone, findings, score and quality checks.\nNo patient name, registration number or date of birth is included in images or metadata.\n`);
+   blob=await zip.generateAsync({type:"blob",compression:"STORE"});fname=`${base}.zip`}
+ }catch(err){$("#busy").hidden=true;V.exportMsg={ok:false,html:"Export failed while building the file: "+esc(err&&err.message||err)};return render()}
+ $("#busy").hidden=true;
+ try{const how=await deliver(fname,blob);
+  if(!pdfOnly){e.exportedAt=Date.now();await saveExam(e)}
+  const size=(blob.size/1048576).toFixed(1);
+  V.exportMsg={ok:true,html:how==="shared"?`<b>${esc(fname)}</b> (${size} MB) shared. If you chose Drive, check it landed in the review folder.`:
+   how==="downloaded"?`<b>${esc(fname)}</b> (${size} MB) downloaded. Upload it from your Downloads to the NeoLung AI review folder in Google Drive.`:
+   `<b>${esc(fname)}</b> ${how} (${size} MB). Upload it to the NeoLung AI review folder in Google Drive.`};
+ }catch(err){const c=err&&err.code;V.exportMsg={ok:false,html:c==="declined"?"Export cancelled.":c==="too_large"?"The file is too large for this destination. Export the PDF only, or remove some clips.":c==="rate_limited"?"A download prompt is already open. Finish it, then try again.":"The file could not be saved here. Try Download PDF only, or open the app in the phone's browser."}}
+ render();
+}
+
+/* ================= example data ================= */
+async function seedExample(){
+ try{if(localStorage.getItem("neolung-scan-seeded"))return}catch(err){}
+ if(EX.length)return;const R=window.NL_REFS;if(!R)return;
+ const e=newExam();e.studyId="EXAMPLE-01";e.example=true;
+ {const d=new Date(Date.now()-2*864e5);Object.assign(e.patient,{ga:"30+2",bw:"1380",cw:"1350",sex:"Female",dob:`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`})}Object.assign(e.clin,{support:"CPAP",map:"6",fio2:"30",indication:"Example: respiratory distress on CPAP",operator:"Example"});
+ const base={sliding:"Present",mmode:"Not done",morph:"Thin",alines:"Present",spared:"Absent",confl:"Absent",consol:"Absent",lp:"Absent",dlp:"Absent",eff:"Absent"};
+ const plan=[["R1","alines",{...base},0],["R2","spared",{...base,alines:"Absent",spared:"Present",morph:"Irregular"},1],["L1","confluent",{...base,alines:"Absent",confl:"Present",morph:"Irregular"},2]];
+ for(const [z,k,f,s] of plan){e.zones[z].f=f;e.zones[z].score=s;const blob=await (await fetch(R[k].src)).blob();const im=await new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=R[k].src});
+  const rec={id:uid("i"),examId:e.id,zone:z,type:"image",ext:"jpg",blob,w:im.naturalWidth,h:im.naturalHeight,source:"Example reference image",t:Date.now(),qc:{pleura:true,sag:true,glare:true,noid:true}};
+  await Store.put("images",rec);IMG.set(e.id,[...(IMG.get(e.id)||[]),rec])}
+ e.zones.R2.comment="Example annotation";await saveExam(e);EX.push(e);
+ try{localStorage.setItem("neolung-scan-seeded","1")}catch(err){}
+}
+
+/* ================= events ================= */
+document.addEventListener("click",async ev=>{
+ const a=ev.target.closest("[data-act]");if(!a)return;
+ if(a.dataset.act==="closeref"){if(ev.target.closest("[data-stop]")&&!ev.target.closest('button[data-act="closeref"]'))return;$("#modal").innerHTML="";return}
+ const act=a.dataset.act;const e=ex();
+ switch(act){
+  case"home":return go("home",{examId:null,exportMsg:null});
+  case"refs":V.prev=V.view==="refs"?V.prev:V.view;return go("refs");
+  case"ref":return openRef(a.dataset.ref);
+  case"back":return go(V.prev&&V.prev!=="refs"&&V.prev!=="crop"?V.prev:"home");
+  case"new":{const n=newExam();EX.push(n);await saveExam(n);return go("setup",{examId:n.id,zone:null,exportMsg:null})}
+  case"open":{const x=EX.find(q=>q.id===a.dataset.id);const started=ALLZ.some(z=>zoneState(x,z).s!=="idle");return go(started?"summary":"setup",{examId:x.id,zone:ORDER[x.set][0],exportMsg:null})}
+  case"setup":return go("setup");
+  case"summary":return go("summary",{exportMsg:null});
+ }
+ if(!e)return;
+ switch(act){
+  case"set":collectSetup();e.set=a.dataset.v;await saveExam(e);return render();
+  case"zone":return go("zone",{zone:a.dataset.z});
+  case"nextzone":{const o=ORDER[e.set];return go("zone",{zone:o[o.indexOf(V.zone)+1]})}
+  case"prevzone":{const o=ORDER[e.set];return go("zone",{zone:o[o.indexOf(V.zone)-1]})}
+  case"find":{const Z=e.zones[V.zone];const k=a.dataset.k,v=a.dataset.v;Z.f[k]=Z.f[k]===v?undefined:v;if(Z.f[k]===undefined)delete Z.f[k];
+   if(k==="consol"&&Z.f.consol!=="Present"){delete Z.f.airbr;delete Z.f.consolSize}if(k==="eff"&&Z.f.eff!=="Present")delete Z.f.effSize;
+   await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
+  case"score":{e.zones[V.zone].score=+a.dataset.v;await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
+  case"armimg":case"armdel":V.delArm=a.dataset.id||e.id;{const y=window.scrollY;render();window.scrollTo(0,y)}return;
+  case"delimg":{const id=a.dataset.id;await Store.del("images",id);IMG.set(e.id,(IMG.get(e.id)||[]).filter(i=>i.id!==id));if(URLS.has(id)){URL.revokeObjectURL(URLS.get(id));URLS.delete(id)}V.delArm=null;await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
+  case"delete":{for(const m of imgsOf(e.id))await Store.del("images",m.id);await Store.del("exams",e.id);EX=EX.filter(x=>x.id!==e.id);IMG.delete(e.id);toast("Examination deleted from this device");return go("home",{examId:null})}
+  case"rot":{const C=V.crop;const s=C.canvas;const c=document.createElement("canvas");c.width=s.height;c.height=s.width;const g=c.getContext("2d");g.translate(c.width,0);g.rotate(Math.PI/2);g.drawImage(s,0,0);C.canvas=c;C.rect=null;return render()}
+  case"cropreset":V.crop.rect=null;V.crop.redraw&&V.crop.redraw();{const b=document.querySelector('[data-act="cropsave"]');if(b)b.textContent="Save whole image"}return;
+  case"cropsave":{const C=V.crop;await storeCanvas(C.canvas,C.rect,C.source);await saveExam(e);V.crop=null;toast("Snapshot saved. Complete the quality checks.");go("zone");return}
+  case"cropcancel":V.crop=null;return go("zone");
+  case"export":return doExport(false);
+  case"exportpdf":return doExport(true);
+  case"incid":V.incId=a.checked;return;
+ }
+});
+document.addEventListener("change",async ev=>{
+ const t=ev.target;
+ if(t.matches('input[type="file"]')){const fs=t.files;if(fs&&fs.length)await intake(fs,t.dataset.src);t.value="";return}
+ const e=ex();if(!e)return;
+ if(t.dataset.qc){const rec=(IMG.get(e.id)||[]).find(i=>i.id===t.dataset.id);if(!rec)return;rec.qc={...(rec.qc||{}),[t.dataset.qc]:t.checked};await Store.put("images",rec);await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
+ if(t.dataset.size){e.zones[V.zone].f[t.dataset.size]=t.value;await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
+ if(t.closest("#setupForm")){collectSetup();await saveExam(e);const c=$("#s-cga");if(c)c.value=cga(e)||"From DOB and GA"}
+});
+document.addEventListener("input",ev=>{
+ const t=ev.target;const e=ex();if(!e)return;const b=t.dataset.bind;
+ if(b==="comment"){e.zones[V.zone].comment=t.value;clearTimeout(t._h);t._h=setTimeout(()=>saveExam(e),400)}
+ if(b==="interp"){e.interp=t.value;clearTimeout(t._h);t._h=setTimeout(()=>saveExam(e),400)}
+});
+document.addEventListener("keydown",ev=>{if(ev.key==="Escape"&&$("#modal").innerHTML)$("#modal").innerHTML=""});
+function collectSetup(){
+ const f=$("#setupForm");const e=ex();if(!f||!e)return;
+ new FormData(f).forEach((v,k)=>{if(k==="studyId")e.studyId=String(v).trim().replace(/[^A-Za-z0-9_-]/g,"-")||e.studyId;else{const [o,p]=k.split(".");(o==="p"?e.patient:e.clin)[p]=String(v)}});
+}
+document.addEventListener("submit",async ev=>{
+ ev.preventDefault();if(ev.target.id!=="setupForm")return;collectSetup();const e=ex();
+ if(!e.studyId){toast("Enter a study ID");return}
+ if(EX.some(x=>x.id!==e.id&&x.studyId===e.studyId&&x.clin.dt===e.clin.dt)){toast("Another examination on this device has the same study ID and time");return}
+ await saveExam(e);go("zone",{zone:ORDER[e.set][0]});
+});
+
+/* ================= boot ================= */
+(async()=>{
+ await Store.open();
+ try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}catch(err){}
+ try{EX=await Store.all("exams");const all=await Store.all("images");all.forEach(i=>IMG.set(i.examId,[...(IMG.get(i.examId)||[]),i]))}catch(err){EX=[]}
+ try{await seedExample()}catch(err){}
+ render();
+ if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").catch(()=>{})}
+})();
+</script>
+</body>
+</html>
