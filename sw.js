@@ -1,7 +1,7 @@
 // NeoLung Scan service worker: the app works offline after the first visit.
 // The page itself is fetched network-first so updates arrive when online;
 // everything else is served from cache first.
-const CACHE = "neolung-scan-v1.0.0";
+const CACHE = "neolung-scan-v1.1.0";
 const SHELL = [
   "./",
   "./index.html",
@@ -11,7 +11,9 @@ const SHELL = [
   "./vendor/jspdf.umd.min.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./icons/apple-touch-icon.png"
+  "./icons/apple-touch-icon.png",
+  "./icons/favicon-64.png",
+  "./icons/logo-96.png"
 ];
 
 self.addEventListener("install", (event) => {

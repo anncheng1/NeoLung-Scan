@@ -2,6 +2,8 @@
 
 Step-by-step neonatal lung ultrasound acquisition on a phone, following the **Pleura-ABCDE** protocol. For each lung zone the app guides probe placement, takes a snapshot of the ultrasound screen, records the Pleura-ABCDE findings and a 0–3 zone score. Each examination exports as one ZIP (PDF protocol, images by zone, `metadata.json`, `findings.csv`) for upload to Google Drive and later AI image review.
 
+![NeoLung Scan](icons/icon-192.png)
+
 Part of the NeoLung AI project, Department of Paediatrics and Neonatology, Hospital Miri.
 
 **Open the app:** https://anncheng1.github.io/NeoLung-Scan/
@@ -10,7 +12,7 @@ Part of the NeoLung AI project, Department of Paediatrics and Neonatology, Hospi
 
 ## Install on a phone
 
-- **iPhone (Safari):** open the link, tap **Share**, then **Add to Home Screen**.
+- **iPhone (Safari):** open the link, tap **Share**, then **Add to Home Screen**, then **Add**. Open **NeoLung** from the home screen and always scan from there: examinations saved in the home-screen app stay there, work offline and are not cleared by Safari.
 - **Android (Chrome):** open the link, tap the **⋮** menu, then **Install app** or **Add to Home screen**.
 
 After the first visit the app works offline.
@@ -20,9 +22,9 @@ After the first visit the app works offline.
 1. **New examination:** study ID, baby and clinical details, 6 zones (anterior and lateral, score 0–18) or 10 zones (adds posterior).
 2. **For each zone:**
    1. Place the probe (diagram, landmarks, settings).
-   2. Snapshot: take a photo of the frozen ultrasound screen or upload an exported image or clip, crop to the scan area, tick four quality checks.
-   3. Pleura-ABCDE findings, with a reference image for each sign.
-   4. Zone score 0–3 (Brat et al. 2015), with a suggestion from the findings.
+   2. Snapshot: take a photo of the frozen ultrasound screen or upload an exported image or clip, crop to the scan area, confirm four quality checks (one tap when all are OK).
+   3. What do you see? Tap the main pattern (Normal, Spared B-lines, White lung, Consolidation). It fills in all Pleura-ABCDE findings and the score; adjust any finding that differs.
+   4. Zone score 0–3 (Brat et al. 2015), suggested from the findings.
 3. **Review and export:** findings table, score, interpretation, then **Download ZIP for Google Drive**.
 
 ## Export contents

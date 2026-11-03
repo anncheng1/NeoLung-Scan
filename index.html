@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="NeoLung">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="icon" href="icons/favicon-64.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -90,6 +90,21 @@ textarea{min-height:84px;resize:vertical}
 .p-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent)}
 .p-idle{color:var(--muted);background:var(--line-2)}
 .p-acc{color:var(--accent);background:var(--accent-weak)}
+.logo{border-radius:7px;align-self:center;flex:none}
+.brand{align-items:center}
+.install{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;align-items:start;border:1.5px solid var(--accent);background:var(--accent-weak)}
+.install img{width:56px;height:56px;border-radius:13px}
+.install ol{margin:6px 0 0;padding-left:20px;font-size:14px}
+.install li{margin-bottom:4px}
+.install li svg{vertical-align:-3px}
+.patterns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:6px}
+.patterns button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 12px;text-align:left;cursor:pointer;min-height:64px;font-family:var(--f-ui);display:flex;flex-direction:column;gap:1px}
+.patterns button b{font-size:15px}
+.patterns button small{font-size:12px;color:var(--muted)}
+.patterns button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent)}
+.hero-cam{min-height:64px;font-size:17px}
+details.findings-more{border-top:1px solid var(--line-2);margin-top:12px;padding-top:4px}
+details.findings-more>summary{padding:10px 0}
 /* home list */
 .exam{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);cursor:pointer;text-align:left;color:var(--ink);font:inherit;width:100%}
 .exam:hover{border-color:var(--accent)}
@@ -177,7 +192,7 @@ tr.grp-r td{background:var(--bg);font:700 11px var(--f-data);color:var(--ink);te
 </head>
 <body>
 <header class="bar"><div class="wrap">
-  <button class="brand" data-act="home" aria-label="NeoLung Scan home">NeoLung Scan <small>Pleura-ABCDE</small></button>
+  <button class="brand" data-act="home" aria-label="NeoLung Scan home"><img src="icons/logo-96.png" alt="" width="30" height="30" class="logo">NeoLung Scan <small>Pleura-ABCDE</small></button>
   <span class="sp"></span>
   <button class="btn ghost sm" data-act="refs">References</button>
 </div></header>
@@ -192,7 +207,7 @@ tr.grp-r td{background:var(--bg);font:700 11px var(--f-data);color:var(--ink);te
 <script src="vendor/jspdf.umd.min.js"></script>
 <script>
 "use strict";
-const APP_VERSION="1.0.0";
+const APP_VERSION="1.1.0";
 /* ================= protocol definition ================= */
 const ZONES={
  R1:{code:"RUA",name:"Right upper anterior",view:"front",core:true,where:"Right front of chest, between the parasternal line and the anterior axillary line, above the nipple line.",pos:"Supine, head midline, arms relaxed."},
@@ -222,6 +237,14 @@ const FIND=[
  {k:"eff",g:"E",l:"Pleural effusion",o:["Absent","Present"],ref:"effusion",size:"effSize",unit:"mm",sizeLabel:"Maximum depth (transverse, 4th ICS)"}
 ];
 const GROUPS=[["Pleura","P"],["A","A"],["B","B"],["C","C"],["D","D"],["E","E"]];
+const BASE_F={sliding:"Present",mmode:"Not done",morph:"Thin",alines:"Present",spared:"Absent",confl:"Absent",consol:"Absent",lp:"Absent",dlp:"Absent",eff:"Absent"};
+const PATTERNS=[
+ {id:"normal",l:"Normal",d:"A-lines, no B-lines",f:{},score:0},
+ {id:"spared",l:"Spared B-lines",d:"Isolated B-lines",f:{spared:"Present"},score:1},
+ {id:"white",l:"White lung",d:"Confluent B-lines",f:{alines:"Absent",confl:"Present",morph:"Irregular"},score:2},
+ {id:"consol",l:"Consolidation",d:"Tissue-like area",f:{alines:"Absent",confl:"Present",consol:"Present",morph:"Irregular"},score:null}
+];
+const patternOf=f=>{const p=PATTERNS.find(p=>Object.entries({...BASE_F,...p.f}).every(([k,v])=>f[k]===v));return p?p.id:null};
 const SCORE_DESC=["A-lines, or fewer than 3 B-lines","Spared (well-spaced) B-lines","Confluent B-lines, with or without subpleural consolidation","Extended consolidation"];
 const QC=[["pleura","Pleural line and rib shadows visible"],["sag","Sagittal view, image not tilted"],["glare","No glare, reflection or blur"],["noid","No patient name or ID in frame"]];
 const SUPPORT=["None","Low-flow oxygen","HFNC","CPAP","NIPPV","nHFO","CMV","iHFO"];
@@ -336,11 +359,29 @@ function dock(){
  return"";
 }
 
+const IS_IOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const isStandalone=()=>{try{return window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true}catch(err){return false}};
+let installEvt=null;
+window.addEventListener("beforeinstallprompt",ev=>{ev.preventDefault();installEvt=ev;if(V.view==="home")render()});
+window.addEventListener("appinstalled",()=>{installEvt=null;toast("NeoLung Scan installed");if(V.view==="home")render()});
+const SHARE_ICON='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>';
+function installCard(){
+ if(isStandalone()||(window.claude&&window.claude.use))return"";
+ let hide=false;try{hide=localStorage.getItem("neolung-install-hide")==="1"}catch(err){}
+ if(hide&&!installEvt)return"";
+ if(IS_IOS)return `<div class="card install"><img src="icons/apple-touch-icon.png" alt="NeoLung Scan icon"><div><h2>Install on your iPhone</h2>
+  <ol><li>Tap <b>Share</b> ${SHARE_ICON} in Safari's toolbar.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>, then open <b>NeoLung</b> from your home screen.</li></ol>
+  <p class="small muted" style="margin-top:6px">Always scan from the home-screen app. Examinations saved there stay there, work offline and are not cleared by Safari.</p>
+  <button class="btn ghost sm" data-act="hideinstall" style="padding-left:0">Hide this</button></div></div>`;
+ if(installEvt)return `<div class="card install"><img src="icons/icon-192.png" alt="NeoLung Scan icon"><div><h2>Install NeoLung Scan</h2><p class="small" style="margin:4px 0 10px">Adds the app to your home screen. It opens full-screen and works offline.</p><button class="btn primary sm" data-act="install">Install app</button></div></div>`;
+ return"";
+}
 function vHome(){
  const list=[...EX].sort((a,b)=>b.updated-a.updated);
  return `<div class="stack">
  <div><h1>Lung ultrasound examinations</h1><p class="muted small" style="margin-top:4px">Step-by-step Pleura-ABCDE acquisition. Snap each zone from the ultrasound screen, record findings, then export a ZIP for the Google Drive review folder.</p></div>
- <button class="btn primary block" data-act="new">New examination</button>
+ ${installCard()}
+ <button class="btn primary block hero-cam" data-act="new">New examination</button>
  ${list.length?list.map(e=>{const t=totals(e);const d=doneCount(e),n=ORDER[e.set].length;return `<button class="exam" data-act="open" data-id="${e.id}">
   <span><b>${esc(e.studyId)}</b> ${e.example?'<span class="pill p-warn">Example</span>':""} ${e.exportedAt?'<span class="pill p-good">Exported</span>':""}</span>
   <span class="sc num">${t.full6?t.sum6:"–"}<small>${t.full6?"score /18":`${t.n6}/6 scored`}</small></span>
@@ -391,7 +432,7 @@ function vZone(){
  const e=ex();const z=V.zone;const Z=e.zones[z];const meta=ZONES[z];const ord=ORDER[e.set];const st=zoneState(e,z);
  const ims=imgsOf(e.id,z);const sug=suggest(e,z);const th=consolThreshold(e);
  const rail=`<nav class="rail" aria-label="Zones">${ord.map(k=>`<button class="zc" data-act="zone" data-z="${k}" ${k===z?'aria-current="step"':""}>${k}<small>${ZONES[k].code}</small><i style="background:${SCOL[zoneState(e,k).s]}"></i></button>`).join("")}</nav>`;
- const c1=`<section class="card"><div class="card-h"><span class="step">1</span><h2>Place the probe</h2></div>
+ const c1=(ims.length?`<details class="card" style="padding-block:12px;margin:0;border-top:1px solid var(--line)"><summary style="list-style:none;display:flex;align-items:center;gap:10px"><span class="step done">1</span><span style="font-size:16px;color:var(--ink)">Place the probe</span><span style="flex:1"></span><span class="small">Show</span></summary><div style="margin-top:12px">`:`<section class="card"><div class="card-h"><span class="step">1</span><h2>Place the probe</h2></div><div>`)+`
   <div class="place"><div>${chest(meta.view,z,e)}</div><div class="stack" style="gap:8px">
    <p><b>${esc(meta.where)}</b></p><p class="small">${esc(meta.pos)}</p>
    <p class="small">Linear high-frequency probe, <b>sagittal</b>, perpendicular to the ribs, marker towards the head. Watch at least 3 breaths and save a 3-second clip on the machine.</p></div></div>
@@ -400,20 +441,26 @@ function vZone(){
    <li>Depth about 3–4 cm, focus at the pleural line.</li>
    <li>Turn off harmonic imaging and speckle-reduction filters where possible.</li>
    <li>Lung sliding unclear: add M-mode through the pleural line.</li>
-   <li>Effusion: add a transverse view in the 4th intercostal space and measure the maximum depth.</li></ul></details></section>`;
+   <li>Effusion: add a transverse view in the 4th intercostal space and measure the maximum depth.</li></ul></details></div>`+(ims.length?`</details>`:`</section>`);
  const c2=`<section class="card"><div class="card-h"><span class="step ${st.ims&&st.good?"done":""}">2</span><h2>Snapshot</h2><span class="sp" style="flex:1"></span><span class="muted small num">${ims.length} saved</span></div>
   <p class="small muted" style="margin-bottom:10px">Freeze the image on the machine. Hold the phone parallel to the screen, fill the frame with the image area, and avoid reflections. You can crop out labels next.</p>
-  <div class="row" style="margin-bottom:12px"><span class="btn primary filebtn" style="flex:1">Take photo<input type="file" id="cam-${z}" accept="image/*" capture="environment" data-src="Phone camera"></span>
-  <span class="btn filebtn" style="flex:1">Upload image or clip<input type="file" id="up-${z}" accept="image/*,video/mp4,video/quicktime" multiple data-src="Upload"></span></div>
+  <div class="row" style="margin-bottom:12px"><span class="btn primary filebtn hero-cam" style="flex:1 1 100%">Take photo of screen<input type="file" id="cam-${z}" accept="image/*" capture="environment" data-src="Phone camera"></span>
+  <span class="btn filebtn" style="flex:1 1 100%">Upload image or clip<input type="file" id="up-${z}" accept="image/*,video/mp4,video/quicktime" multiple data-src="Upload"></span></div>
   ${ims.length?`<div class="shots">${ims.map((m,i)=>`<div class="shot"><div class="vis">${m.type==="video"?`<video src="${url(m)}" controls playsinline muted></video>`:`<img src="${url(m)}" alt="${z} snapshot ${i+1}">`}</div>
    <div class="body"><div class="row between"><span class="mono small">${z}_${i+1} · ${esc(m.source)}${m.w?` · ${m.w}×${m.h}`:""}</span><button class="btn ghost sm danger" data-act="${V.delArm===m.id?"delimg":"armimg"}" data-id="${m.id}">${V.delArm===m.id?"Tap to confirm":"Remove"}</button></div>
    ${m.type==="video"?`<p class="small muted">Video clip. Check quality on playback.</p>`:`<div class="qc">${QC.map(([k,l])=>`<label class="check"><input type="checkbox" data-qc="${k}" data-id="${m.id}" ${m.qc&&m.qc[k]?"checked":""}><span>${l}</span></label>`).join("")}</div>
-   ${QC.every(([k])=>m.qc&&m.qc[k])?`<span class="pill p-good">Quality checked</span>`:`<span class="pill p-warn">Tick all four checks</span>`}`}</div></div>`).join("")}</div>`:`<div class="note">No snapshot yet for ${z}.</div>`}</section>`;
+   ${QC.every(([k])=>m.qc&&m.qc[k])?`<span class="pill p-good">Quality checked</span>`:`<button class="btn sm primary" data-act="qcall" data-id="${m.id}" style="margin-top:6px">All four checks OK</button>`}`}</div></div>`).join("")}</div>`:`<div class="note">No snapshot yet for ${z}.</div>`}</section>`;
  let cur="";const rows=FIND.filter(d=>!d.when||d.when(Z.f)).map(d=>{let h="";if(d.g!==cur){cur=d.g;const L=GROUPS.find(g=>g[0]===d.g);h+=`<div class="grp"><b>${L[1]}</b><h3>${d.g==="Pleura"?"Pleura":{A:"A-lines",B:"B-lines",C:"Consolidation",D:"Dynamics",E:"Effusion"}[d.g]}</h3></div>`}
   return h+`<div class="frow"><div class="lab"><span>${d.l}</span><button type="button" class="ex" data-act="ref" data-ref="${d.ref}">See example</button></div>
   <div class="seg" role="group" aria-label="${d.l}">${d.o.map(o=>`<button type="button" data-act="find" data-k="${d.k}" data-v="${o}" aria-pressed="${Z.f[d.k]===o}">${o}</button>`).join("")}</div>
   ${d.size&&Z.f[d.k]==="Present"?`<label class="f">${d.sizeLabel}<div class="unit"><input id="sz-${z}-${d.size}" type="number" step="${d.unit==="cm"?"0.1":"1"}" inputmode="decimal" data-size="${d.size}" value="${esc(Z.f[d.size]||"")}"><span>${d.unit}</span></div>${d.k==="consol"&&th?`<span class="small muted" style="font-weight:400">Threshold for this baby: ${th} cm (0.5 cm/kg, or over 1 cm). Smaller lesions count as subpleural.</span>`:""}</label>`:""}</div>`}).join("");
- const c3=`<section class="card"><div class="card-h"><span class="step ${st.nf===st.nreq?"done":""}">3</span><h2>Pleura-ABCDE findings</h2><span style="flex:1"></span><span class="muted small num">${st.nf}/${st.nreq}</span></div>${rows}</section>`;
+ const pat=patternOf(Z.f);
+ const c3=`<section class="card"><div class="card-h"><span class="step ${st.nf===st.nreq?"done":""}">3</span><h2>What do you see?</h2><span style="flex:1"></span><span class="muted small num">${st.nf}/${st.nreq}</span></div>
+  <p class="small muted" style="margin-bottom:10px">Tap the main pattern. It fills in all the Pleura-ABCDE findings and the score; then change anything that differs.</p>
+  <div class="patterns">${PATTERNS.map(p=>`<button type="button" data-act="pattern" data-p="${p.id}" aria-pressed="${pat===p.id}"><b>${p.l}</b><small>${p.d}</small></button>`).join("")}</div>
+  <button type="button" class="ex" data-act="ref" data-ref="${pat==="spared"?"spared":pat==="white"?"confluent":pat==="consol"?"consolidation":"alines"}">See reference image</button>
+  ${Z.f.consol==="Present"&&!Z.f.consolSize?`<p class="note warn" style="margin-top:8px">Enter the consolidation depth below to complete the score.</p>`:""}
+  <details class="findings-more" ${st.nf&&st.nf<st.nreq||Z.f.consol==="Present"?"open":""}><summary>All findings (Pleura-ABCDE) · ${st.nf}/${st.nreq}</summary>${rows}</details></section>`;
  const c4=`<section class="card"><div class="card-h"><span class="step ${Z.score!==null?"done":""}">4</span><h2>Zone score</h2></div>
   <p class="small muted" style="margin-bottom:10px">${sug.v!==null?`Suggested from findings: <b class="mono">${sug.v}</b> (${esc(sug.why)})`:esc(sug.why)}</p>
   <div class="scores">${[0,1,2,3].map(s=>`<button type="button" data-act="score" data-v="${s}" aria-pressed="${Z.score===s}">${sug.v===s?'<span class="sug">Suggested</span>':""}<b>${s}</b><small>${SCORE_DESC[s]}</small></button>`).join("")}</div>
@@ -662,6 +709,8 @@ document.addEventListener("click",async ev=>{
   case"new":{const n=newExam();EX.push(n);await saveExam(n);return go("setup",{examId:n.id,zone:null,exportMsg:null})}
   case"open":{const x=EX.find(q=>q.id===a.dataset.id);const started=ALLZ.some(z=>zoneState(x,z).s!=="idle");return go(started?"summary":"setup",{examId:x.id,zone:ORDER[x.set][0],exportMsg:null})}
   case"setup":return go("setup");
+  case"hideinstall":try{localStorage.setItem("neolung-install-hide","1")}catch(err){}return render();
+  case"install":if(installEvt){installEvt.prompt();try{await installEvt.userChoice}catch(err){}installEvt=null;render()}return;
   case"summary":return go("summary",{exportMsg:null});
  }
  if(!e)return;
@@ -670,6 +719,10 @@ document.addEventListener("click",async ev=>{
   case"zone":return go("zone",{zone:a.dataset.z});
   case"nextzone":{const o=ORDER[e.set];return go("zone",{zone:o[o.indexOf(V.zone)+1]})}
   case"prevzone":{const o=ORDER[e.set];return go("zone",{zone:o[o.indexOf(V.zone)-1]})}
+  case"pattern":{const Z=e.zones[V.zone];const p=PATTERNS.find(q=>q.id===a.dataset.p);const keep={consolSize:Z.f.consolSize,effSize:Z.f.effSize};
+   Z.f={...BASE_F,...p.f};if(Z.f.consol==="Present"&&keep.consolSize)Z.f.consolSize=keep.consolSize;
+   Z.score=p.score!==null?p.score:suggest(e,V.zone).v;await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);toast(`${p.l}: findings filled. Check and adjust if needed.`);return}
+  case"qcall":{const rec=(IMG.get(e.id)||[]).find(i=>i.id===a.dataset.id);if(rec){rec.qc={pleura:true,sag:true,glare:true,noid:true};await Store.put("images",rec);await saveExam(e)}const y=window.scrollY;render();window.scrollTo(0,y);return}
   case"find":{const Z=e.zones[V.zone];const k=a.dataset.k,v=a.dataset.v;Z.f[k]=Z.f[k]===v?undefined:v;if(Z.f[k]===undefined)delete Z.f[k];
    if(k==="consol"&&Z.f.consol!=="Present"){delete Z.f.airbr;delete Z.f.consolSize}if(k==="eff"&&Z.f.eff!=="Present")delete Z.f.effSize;
    await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
@@ -691,7 +744,7 @@ document.addEventListener("change",async ev=>{
  if(t.matches('input[type="file"]')){const fs=t.files;if(fs&&fs.length)await intake(fs,t.dataset.src);t.value="";return}
  const e=ex();if(!e)return;
  if(t.dataset.qc){const rec=(IMG.get(e.id)||[]).find(i=>i.id===t.dataset.id);if(!rec)return;rec.qc={...(rec.qc||{}),[t.dataset.qc]:t.checked};await Store.put("images",rec);await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
- if(t.dataset.size){e.zones[V.zone].f[t.dataset.size]=t.value;await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
+ if(t.dataset.size){const Zs=e.zones[V.zone];const before=suggest(e,V.zone).v;Zs.f[t.dataset.size]=t.value;if(Zs.score===null||Zs.score===before){const nv=suggest(e,V.zone).v;if(nv!==null)Zs.score=nv}await saveExam(e);const y=window.scrollY;render();window.scrollTo(0,y);return}
  if(t.closest("#setupForm")){collectSetup();await saveExam(e);const c=$("#s-cga");if(c)c.value=cga(e)||"From DOB and GA"}
 });
 document.addEventListener("input",ev=>{
